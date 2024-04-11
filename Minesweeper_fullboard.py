@@ -45,7 +45,8 @@ def print_board(board):
     for row in board:
         for cell in row:
             if cell == -2:
-                print("?", end=" ")
+                #print square
+                print("■", end=" ")
             elif cell == -1:
                 print("X", end=" ")
             else:
@@ -75,7 +76,7 @@ def main():
 
     #load the model
     agent = Agent(gamma=0.99, epsilon=0.0,batch_size=64, n_actions=init_w*init_h,eps_end=0.01,input_dims=[init_w*init_h],lr=0.001,eps_dec=0,max_mem_size=100000)
-    agent = agent.load_model(name="model_300000.pt")
+    agent = agent.load_model(name="Model_3Bombs_5x5_batch64_lr0.001_mem100000/model_final.pt")
 
     for i in range(n_games):
 
@@ -89,6 +90,9 @@ def main():
 
         actions_taken = []
 
+        start_row = 0
+        start_col = 0
+
         while (not done and n_actions < 25):            
             #human play
             #x = int(input("Enter x: "))
@@ -100,8 +104,13 @@ def main():
 
             #grab random 5x5 area from visible board
             # Generate random indices for the starting point of the 5x5 area
+
             start_row = np.random.randint(0, 6)  # Random starting row index between 0 and 5 (inclusive)
             start_col = np.random.randint(0, 6)  # Random starting column index between 0 and 5 (inclusive)
+
+            
+
+                
 
             # Slice the 5x5 area from the original array
             random_5x5_area = visible_board[start_row:start_row+5, start_col:start_col+5]

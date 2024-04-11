@@ -67,21 +67,22 @@ def main():
     #winratio last 100 games
     win_loss_ratio = np.zeros(100)
 
-    n_games = 1_000_000
+    n_games = 1000
     wins = 0
-
-    #initialize the agent
-    agent = Agent(gamma=0.99, epsilon=1.0,batch_size=64, n_actions=w*h,eps_end=0.01,input_dims=[w*h],lr=0.001,eps_dec=(1/n_games),max_mem_size=100000)
-
+    average_number_of_actions = 0
+    
     #load the model
-    # agent = Agent(gamma=0.99, epsilon=0.0,batch_size=64, n_actions=w*h,eps_end=0.01,input_dims=[w*h],lr=0.04,eps_dec=(1/n_games),max_mem_size=50000)
-    # agent = agent.load_model(name="model_300000.pt")
+    agent = Agent(gamma=0.99, epsilon=0.1,batch_size=64, n_actions=w*h,eps_end=0.01,input_dims=[w*h],lr=0.04,eps_dec=(1/n_games),max_mem_size=100000)
+    iteration = input("Enter the iteration number: ")
+    folder = "Model_3Bombs_5x5_batch64_lr0.001_mem100000/"
+    agent = agent.load_model(name=f"{folder}/model_{iteration}.pt")
+
 
     for i in range(n_games):
 
         done = False
-
-        board = create_board(w,h,bombs=3)
+        n_bombs = 3
+        board = create_board(w,h,bombs=n_bombs)
 
         visible_board = np.zeros((w,h))
         visible_board.fill(-2)
@@ -90,15 +91,12 @@ def main():
         actions_taken = []
 
         while (not done and n_actions < 25):            
-            #print_board(visible_board)
-            #human play
-            #x = int(input("Enter x: "))
-            #y = int(input("Enter y: "))
-
-            #next = input("go next?")
 
             #Choose the action with the agent
             curr_action = agent.choose_action(visible_board.flatten())
+
+            # while curr_action in actions_taken:
+            #     curr_action = agent.choose_action(visible_board.flatten())
 
             #store the current state before the action
             curr_state = copy.deepcopy(visible_board)
@@ -125,7 +123,7 @@ def main():
                 win_loss_ratio[i % 100] = 0
 
             #win
-            if np.count_nonzero(visible_board == -2) == 3:
+            if np.count_nonzero(visible_board == -2) == n_bombs:
                 done = True
                 wins += 1
                 reward_terminal = 1
@@ -145,6 +143,8 @@ def main():
                 if curr_action in actions_taken:
                     reward_new_action = -1
 
+                
+
             #reward function
             curr_reward = 100*reward_terminal + 10*reward_cells + 25*reward_new_action
 
@@ -154,34 +154,31 @@ def main():
                 if n_actions == 25:
                     win_loss_ratio[i % 100] = 0
             
-            #store the transition
-            agent.store_transition(curr_state.flatten(), curr_action, curr_reward, visible_board.flatten(), done)  
-
             #update the reward lists
             reward_list.append(curr_reward)
             trailing_reward.append(np.mean(reward_list[-1000:]))
 
-                  
+        average_number_of_actions += n_actions
+
         #update the number of actions list
         n_action_list.append(n_actions)       
 
-        agent.learn()
         win_loss_ratio_number = np.sum(win_loss_ratio) / 100
         win_ratio_list.append(win_loss_ratio_number)
         trailing_wl.append(np.mean(win_ratio_list[-1000:]))
 
-        if i % 100 == 0:
+        #if i % 1 == 0:
             
-            print(f"game: {i} trailing_reward: {np.mean(reward_list[-100:]):.2f} epsilon: {agent.epsilon:.2f} actions: {n_actions} wins: {wins} win_loss_ratio: {win_loss_ratio_number:.2f}")
+        print(f"game: {i} trailing_reward: {np.mean(reward_list[-100:]):.2f} epsilon: {agent.epsilon:.2f} actions: {n_actions} wins: {wins} win_loss_ratio: {win_loss_ratio_number:.2f}")
 
-        if i % 100_000 == 0 and i != 0:
-            #save model with i name
-            agent.save_model(name=f"model_{i}.pt")
+    #print final wr
+    print(f"Final win ratio: {wins/n_games:.2f}")
+    print(f"Average number of actions: {average_number_of_actions/n_games:.2f}")
+
     #plot trailing reward
     plt.plot(trailing_wl)
-    plt.savefig("winpercentage.png")
+    plt.savefig("winpercentage_trained.png")
     
-    agent.save_model()
 
 
 
