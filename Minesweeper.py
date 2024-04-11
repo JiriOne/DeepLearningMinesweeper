@@ -67,7 +67,7 @@ def main():
     #winratio last 100 games
     win_loss_ratio = np.zeros(100)
 
-    n_games = 1000
+    n_games = 1_000_000
     wins = 0
 
     #initialize the agent
@@ -140,7 +140,7 @@ def main():
                         if visible_board[a][b] != -2 and curr_state[a][b] == -2:
                             cells_opened += 1
             
-                reward_cells = cells_opened / w*h
+                reward_cells = cells_opened / (w*h)
 
                 if curr_action in actions_taken:
                     reward_new_action = -1
@@ -161,7 +161,7 @@ def main():
         #update the number of actions list
         n_action_list.append(n_actions)       
 
-        #agent.learn()
+        agent.learn()
         win_loss_ratio_number = np.sum(win_loss_ratio) / 100
         win_ratio_list.append(win_loss_ratio_number)
         trailing_wl.append(np.mean(win_ratio_list[-1000:]))
