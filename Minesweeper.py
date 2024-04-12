@@ -70,6 +70,15 @@ def main():
     n_games = 1_000_000
     wins = 0
 
+    #winarates per number of bombs
+    win_rates = np.zeros(11)
+    
+    #games played per number of bombs
+    games_played = np.zeros(11)
+
+    #winrates over time per number of bombs
+    win_rates_time = np.zeros(11)
+
     #initialize the agent
     agent = Agent(gamma=0.99, epsilon=1.0,batch_size=64, n_actions=w*h,eps_end=0.01,input_dims=[w*h],lr=0.001,eps_dec=(1/n_games),max_mem_size=100000)
 
@@ -81,7 +90,11 @@ def main():
 
         done = False
 
-        board = create_board(w,h,bombs=3)
+        n_bombs = np.random.randint(1, 10)
+        board = create_board(w,h,bombs=n_bombs)
+
+        #increase the number of games played for the number of bombs
+        games_played[n_bombs] += 1
 
         visible_board = np.zeros((w,h))
         visible_board.fill(-2)
@@ -125,11 +138,14 @@ def main():
                 win_loss_ratio[i % 100] = 0
 
             #win
-            if np.count_nonzero(visible_board == -2) == 3:
+            if np.count_nonzero(visible_board == -2) == n_bombs:
                 done = True
                 wins += 1
                 reward_terminal = 1
                 win_loss_ratio[i % 100] = 1   
+
+                #increase the winrate for the number of bombs
+                win_rates[n_bombs] += 1
 
             
             if not done:
@@ -144,15 +160,13 @@ def main():
 
                 if curr_action in actions_taken:
                     reward_new_action = -1
+                else:
+                    reward_new_action = 1
 
             #reward function
             curr_reward = 100*reward_terminal + 10*reward_cells + 25*reward_new_action
 
             n_actions += 1
-
-            if not done:
-                if n_actions == 25:
-                    win_loss_ratio[i % 100] = 0
             
             #store the transition
             agent.store_transition(curr_state.flatten(), curr_action, curr_reward, visible_board.flatten(), done)  
@@ -170,16 +184,38 @@ def main():
         win_ratio_list.append(win_loss_ratio_number)
         trailing_wl.append(np.mean(win_ratio_list[-1000:]))
 
+        if i % 100_000 == 0:
+            #save model with i name
+            agent.save_model(name=f"model_{i}.pt")
+
+        if i % 1000 == 0:
+
+            #print the win rates nicely
+            print("Win rates: ")
+            for j in range(11):
+                print(f"bombs: {j} winrate: {win_rates[j] / games_played[j]:.2f}")
+
+            print("Win rates over time: ")
+            print(win_rates_time)
+
+            #reset the win rates
+            win_rates = np.zeros(11)
+            games_played = np.zeros(11)
+
         if i % 100 == 0:
             
             print(f"game: {i} trailing_reward: {np.mean(reward_list[-100:]):.2f} epsilon: {agent.epsilon:.2f} actions: {n_actions} wins: {wins} win_loss_ratio: {win_loss_ratio_number:.2f}")
 
-        if i % 100_000 == 0 and i != 0:
-            #save model with i name
-            agent.save_model(name=f"model_{i}.pt")
+        
+    
     #plot trailing reward
     plt.plot(trailing_wl)
     plt.savefig("winpercentage.png")
+    plt.close()
+
+    plt.plot(trailing_reward)
+    plt.savefig("trailing_reward.png")
+    plt.close()
     
     agent.save_model()
 

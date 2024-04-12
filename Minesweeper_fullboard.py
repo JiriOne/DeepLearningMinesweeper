@@ -93,24 +93,12 @@ def main():
         start_row = 0
         start_col = 0
 
-        while (not done and n_actions < 25):            
-            #human play
-            #x = int(input("Enter x: "))
-            #y = int(input("Enter y: "))
-            # print_board(visible_board)
-
-            # next = input("go next?")
-
-
+        while (not done and n_actions < 100):            
             #grab random 5x5 area from visible board
             # Generate random indices for the starting point of the 5x5 area
 
             start_row = np.random.randint(0, 6)  # Random starting row index between 0 and 5 (inclusive)
             start_col = np.random.randint(0, 6)  # Random starting column index between 0 and 5 (inclusive)
-
-            
-
-                
 
             # Slice the 5x5 area from the original array
             random_5x5_area = visible_board[start_row:start_row+5, start_col:start_col+5]
@@ -131,12 +119,12 @@ def main():
             x = curr_action // w
             y = curr_action % w
 
-            #print("x: ", x, "y: ", y)
-
             #loss
             if not action(board, visible_board, x, y):
                 done = True   
                 win_loss_ratio[i % 100] = 0
+
+                percentage_solved = np.count_nonzero(visible_board != -2) / (w*h)
                 #print("loss")
 
             #win
@@ -148,17 +136,15 @@ def main():
                 #print("win")
 
             n_actions += 1
-
-                  
-        
+                    
         n_action_list.append(n_actions)       
 
         win_loss_ratio_number = np.sum(win_loss_ratio) / 100
         win_ratio_list.append(win_loss_ratio_number)
         trailing_wl.append(np.mean(win_ratio_list[-1000:]))
 
+
         if i % 100 == 0:
-            
             print(f"game: {i} trailing_reward: {np.mean(reward_list[-100:]):.2f} epsilon: {agent.epsilon:.2f} actions: {n_actions} wins: {wins} win_loss_ratio: {win_loss_ratio_number:.2f}")
 
     #plot trailing reward

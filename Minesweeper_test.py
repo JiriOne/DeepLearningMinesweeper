@@ -74,7 +74,7 @@ def main():
     #load the model
     agent = Agent(gamma=0.99, epsilon=0.1,batch_size=64, n_actions=w*h,eps_end=0.01,input_dims=[w*h],lr=0.04,eps_dec=(1/n_games),max_mem_size=100000)
     iteration = input("Enter the iteration number: ")
-    folder = "Model_3Bombs_5x5_batch64_lr0.001_mem100000/"
+    folder = "./"
     agent = agent.load_model(name=f"{folder}/model_{iteration}.pt")
 
 
@@ -167,17 +167,17 @@ def main():
         win_ratio_list.append(win_loss_ratio_number)
         trailing_wl.append(np.mean(win_ratio_list[-1000:]))
 
-        #if i % 1 == 0:
+        if i % 100 == 0:
             
-        print(f"game: {i} trailing_reward: {np.mean(reward_list[-100:]):.2f} epsilon: {agent.epsilon:.2f} actions: {n_actions} wins: {wins} win_loss_ratio: {win_loss_ratio_number:.2f}")
+            print(f"game: {i} trailing_reward: {np.mean(reward_list[-100:]):.2f} epsilon: {agent.epsilon:.2f} actions: {n_actions} wins: {wins} win_loss_ratio: {win_loss_ratio_number:.2f}")
 
     #print final wr
     print(f"Final win ratio: {wins/n_games:.2f}")
     print(f"Average number of actions: {average_number_of_actions/n_games:.2f}")
 
     #plot trailing reward
-    plt.plot(trailing_wl)
-    plt.savefig("winpercentage_trained.png")
+    # plt.plot(trailing_wl)
+    # plt.savefig("winpercentage_trained.png")
     
 
 
