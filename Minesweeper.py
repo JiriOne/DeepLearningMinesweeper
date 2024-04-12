@@ -165,7 +165,11 @@ def play_game(w: int, h: int, agents: list[Agent], n_bombs: int,
             win = True
             reward_terminal = 1
 
-        new_state = visible_board[obs_y_offset:obs_y_offset + obs_h, obs_x_offset:obs_x_offset + obs_w]
+        if h == obs_h and w == obs_w:
+            new_state = visible_board
+        else:
+            new_state = visible_board[obs_y_offset:obs_y_offset + obs_h, obs_x_offset:obs_x_offset + obs_w]
+
         if not done:
             cells_opened = 0
             # reward for each new tile opened
