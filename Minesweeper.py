@@ -167,6 +167,10 @@ def main():
             curr_reward = 100*reward_terminal + 10*reward_cells + 25*reward_new_action
 
             n_actions += 1
+
+            if not done:
+                if n_actions == 25:
+                    win_loss_ratio[i % 100] = 0
             
             #store the transition
             agent.store_transition(curr_state.flatten(), curr_action, curr_reward, visible_board.flatten(), done)  
@@ -206,13 +210,17 @@ def main():
             
             print(f"game: {i} trailing_reward: {np.mean(reward_list[-100:]):.2f} epsilon: {agent.epsilon:.2f} actions: {n_actions} wins: {wins} win_loss_ratio: {win_loss_ratio_number:.2f}")
 
-        
     
-    #plot trailing reward
+    np.save("win_ratio.npy", np.asarray(win_ratio_list))
+    np.save("trailing_wl.npy", np.asarray(trailing_wl))
+    np.save("trailing_reward.npy", np.asarray(trailing_reward))
+
+    #plot trailing wl
     plt.plot(trailing_wl)
     plt.savefig("winpercentage.png")
     plt.close()
 
+    # plot trailing reward
     plt.plot(trailing_reward)
     plt.savefig("trailing_reward.png")
     plt.close()
