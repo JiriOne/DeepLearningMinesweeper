@@ -58,7 +58,65 @@ def print_board(board):
         print()
 
 
-def play_game(w: int, h: int, agent: Agent, n_bombs: int, reward_list: list[float], trailing_reward: list[float]):
+def get_observation(visible_board, w, h, obs_w, obs_h, n_actions):
+    """
+    Get random observation from the board with at least one open tile and at least one closed tile.
+
+    return the observation window and the x and y offset (from top left corner)
+    """
+    # default - observation is entire visible board
+    if w == obs_w and h == obs_h:
+        return visible_board, 0, 0
+
+    # pick a random observation from the board
+    assert w > obs_w and h > obs_h
+
+    start_row = np.random.randint(0, 1 + h - obs_h)
+    start_col = np.random.randint(0, 1 + w - obs_w)
+
+    observation = visible_board[start_row:start_row + obs_h, start_col:start_col + obs_w]
+
+    if n_actions != 0:
+        # observation with at least 1 closed tile and at least 1 open tile
+        closed_tiles_in_observation = np.sum(observation == -2)
+
+        while closed_tiles_in_observation == 0 or closed_tiles_in_observation == obs_w * obs_h:
+            start_row = np.random.randint(0, 1 + h - obs_h)
+            start_col = np.random.randint(0, 1 + w - obs_w)
+            observation = visible_board[start_row:start_row + obs_h, start_col:start_col + obs_w]
+            closed_tiles_in_observation = np.sum(observation == -2)
+
+    return observation, start_col, start_row
+
+
+def choose_action(agents: list[Agent], observation):
+    """
+    TODO:  now, a majority vote is used to select an action.
+    todo: In the case that no single action has a majority, the first is chosen
+    todo: choosing the action with the highest summed Q value is probably better
+    """
+    if len(agents) == 1:
+        curr_action = agents[0].choose_action(observation.flatten())
+    else:
+        actions = [agent.choose_action(observation.flatten()) for agent in agents]
+        chosen_actions = []
+        action_counts = []
+        for a in actions:
+            try:
+                action_index = chosen_actions.index(a)
+                action_counts[action_index] += 1
+            except ValueError:
+                chosen_actions.append(a)
+                action_counts.append(1)
+        most_chosen = np.argmax(action_counts)
+        curr_action = chosen_actions[most_chosen]
+
+    return curr_action
+
+
+def play_game(w: int, h: int, agents: list[Agent], n_bombs: int,
+              reward_list: list[float], trailing_reward: list[float],
+              obs_w=5, obs_h=5):
     board = create_board(w, h, bombs=n_bombs)
 
     visible_board = np.zeros((w, h))
@@ -70,12 +128,15 @@ def play_game(w: int, h: int, agent: Agent, n_bombs: int, reward_list: list[floa
     win = False
 
     done = False
-    while not done and n_actions < 25:
+    while not done and n_actions < w * h:
+
+        observation, obs_x_offset, obs_y_offset = get_observation(visible_board, w, h, obs_w, obs_h, n_actions)
+
         # Choose the action with the agent
-        curr_action = agent.choose_action(visible_board.flatten())
+        curr_action = choose_action(agents, observation)
 
         # store the current state before the action
-        curr_state = copy.deepcopy(visible_board)
+        curr_state = copy.deepcopy(observation)
 
         # initialize rewards
         curr_reward = 0
@@ -87,10 +148,11 @@ def play_game(w: int, h: int, agent: Agent, n_bombs: int, reward_list: list[floa
         actions_taken.append(curr_action)
 
         # get the x and y coordinates from the action
-        x = curr_action // w
-        y = curr_action % w
+        x = curr_action // obs_w
+        y = curr_action % obs_h
 
-        # print("x: ", x, "y: ", y)
+        x += obs_x_offset
+        y += obs_y_offset
 
         # loss
         if not action(board, visible_board, x, y):
@@ -106,12 +168,12 @@ def play_game(w: int, h: int, agent: Agent, n_bombs: int, reward_list: list[floa
         if not done:
             cells_opened = 0
             # reward for each new tile opened
-            for a in range(w):
-                for b in range(h):
-                    if visible_board[a][b] != -2 and curr_state[a][b] == -2:
+            for a in range(obs_w):
+                for b in range(obs_h):
+                    if observation[b][a] != -2 and curr_state[b][a] == -2:
                         cells_opened += 1
 
-            reward_cells = cells_opened / (w * h)
+            reward_cells = cells_opened / (obs_w * obs_h)
 
             if curr_action in actions_taken:
                 reward_new_action = -1
@@ -128,7 +190,7 @@ def play_game(w: int, h: int, agent: Agent, n_bombs: int, reward_list: list[floa
         trailing_reward.append(np.mean(reward_list[-1000:]))
 
         # store the transition
-        agent.store_transition(curr_state.flatten(), curr_action, curr_reward, visible_board.flatten(), done)
+        agents[0].store_transition(curr_state.flatten(), curr_action, curr_reward, observation.flatten(), done)
 
     return win, n_actions
 
@@ -136,17 +198,20 @@ def play_game(w: int, h: int, agent: Agent, n_bombs: int, reward_list: list[floa
 def play_games(
         n_games: int,
         w: int, h: int,
-        agent: Agent, update_agent: bool,
+        agents: list[Agent], update_agent: bool,
         n_bombs_low=1, n_bombs_high=10,
-        save_stats=False):
+        save_stats=False,
+        obs_w=5,
+        obs_h=5
+):
     reward_list = []
     trailing_reward = []
     n_action_list = []
     win_ratio_list = []
     trailing_wl = []
 
-    # winratio last 100 games
-    win_loss_ratio = np.zeros(100)
+    # winratio last 1000 games
+    win_loss_ratio = np.zeros(1000)
 
     wins = 0
 
@@ -163,45 +228,47 @@ def play_games(
         # increase the number of games played for the number of bombs
         games_played[n_bombs] += 1
 
-        win, n_actions = play_game(w, h, agent, n_bombs, reward_list, trailing_reward)
+        win, n_actions = play_game(w, h, agents, n_bombs, reward_list, trailing_reward, obs_w, obs_h)
 
         if win:
             wins += 1
-            win_loss_ratio[i % 100] = 1
+            win_loss_ratio[i % 1000] = 1
 
             # increase the winrate for the number of bombs
             win_rates[n_bombs] += 1
         else:
-            win_loss_ratio[i % 100] = 0
+            win_loss_ratio[i % 1000] = 0
 
         # update the number of actions list
         n_action_list.append(n_actions)
 
-        win_loss_ratio_number = np.sum(win_loss_ratio) / 100
+        win_loss_ratio_number = np.sum(win_loss_ratio) / 1000
         win_ratio_list.append(win_loss_ratio_number)
         trailing_wl.append(np.mean(win_ratio_list[-1000:]))
 
-        if i % 100 == 0:
+        if i % 1000 == 0:
             print(
-                f"game: {i} trailing_reward: {np.mean(reward_list[-100:]):.2f} epsilon: {agent.epsilon:.2f} actions: {n_actions} wins: {wins} win_loss_ratio: {win_loss_ratio_number:.2f}")
+                f"game: {i} trailing_reward: {np.mean(reward_list[-1000:]):.2f} epsilon: {agents[0].epsilon:.2f}"
+                f"avg_n_actions: {np.mean(n_action_list[-1000:]):.2f} wins: {wins} win_loss_ratio: {win_loss_ratio_number:.2f}")
 
         if i % 1000 == 0:
 
             # print the win rates nicely
-            print("Win rates: ")
             for j in range(11):
-                print(f"bombs: {j} winrate: {win_rates[j] / games_played[j]:.2f}")
+                gp = games_played[j]
+                if gp > 0:
+                    print(f"bombs: {j} winrate: {win_rates[j] / games_played[j]:.2f}")
 
             # reset the win rates
             win_rates = np.zeros(11)
             games_played = np.zeros(11)
 
         if update_agent:
-            agent.learn()
+            agents[0].learn()
 
             if i % 100_000 == 0:
                 # save model with i name
-                agent.save_model(name=f"model_{i}.pt")
+                agents[0].save_model(name=f"model_{i}.pt")
 
         if save_stats and i % 100_000 == 0:
             save_run_stats(win_ratio_list, trailing_wl, trailing_reward)

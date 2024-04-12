@@ -1,6 +1,6 @@
 import numpy as np
 
-import Minesweeper_default_n_bombs as Minesweeper
+import Minesweeper
 from NN import Agent
 import copy
 import matplotlib.pyplot as plt
