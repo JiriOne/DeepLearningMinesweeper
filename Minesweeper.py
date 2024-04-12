@@ -195,7 +195,7 @@ def play_game(w: int, h: int, agents: list[Agent], n_bombs: int,
         trailing_reward.append(np.mean(reward_list[-1000:]))
 
         # store the transition
-        agents[0].store_transition(curr_state.flatten(), curr_action, curr_reward, observation.flatten(), done)
+        agents[0].store_transition(curr_state.flatten(), curr_action, curr_reward, new_state.flatten(), done)
 
     return win, n_actions
 
