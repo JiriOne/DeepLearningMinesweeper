@@ -99,10 +99,14 @@ class Agent():
         action_batch = self.action_memory[batch]
 
         q_eval = self.Q_eval.__call__(state_batch)[batch_index,action_batch]    #forward(state_batch)[batch_index,action_batch]
-        q_next = self.Q_eval.__call__(new_state_batch)                          #forward(new_state_batch)
-        q_next[terminal_batch] = 0.0
 
-        q_target = reward_batch + self.gamma * T.max(q_next, dim=1)[0]
+        if self.gamma > 0:
+            q_next = self.Q_eval.__call__(new_state_batch)                          #forward(new_state_batch)
+            q_next[terminal_batch] = 0.0
+
+            q_target = reward_batch + self.gamma * T.max(q_next, dim=1)[0]
+        else:
+            q_target = reward_batch
 
         loss = self.Q_eval.loss(q_target, q_eval).to(self.Q_eval.device)
         loss.backward()
@@ -115,7 +119,7 @@ class Agent():
         T.save(self.Q_eval.state_dict(), name)
 
     def load_model(self, name='model.pt'):
-        self.Q_eval.load_state_dict(T.load(name))
+        self.Q_eval.load_state_dict(T.load(name, map_location='cuda:0' if T.cuda.is_available() else 'cpu'))
         self.Q_eval.eval()
         return self
         
