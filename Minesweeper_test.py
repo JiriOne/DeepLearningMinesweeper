@@ -74,7 +74,7 @@ def main():
     #load the model
     agent = Agent(gamma=0.99, epsilon=0.1,batch_size=64, n_actions=w*h,eps_end=0.01,input_dims=[w*h],lr=0.04,eps_dec=(1/n_games),max_mem_size=100000)
     iteration = input("Enter the iteration number: ")
-    folder = "./"
+    folder = "./Model_3Bombs_5x5_batch64_lr0.001_mem100000"
     agent = agent.load_model(name=f"{folder}/model_{iteration}.pt")
 
 
