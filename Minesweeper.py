@@ -46,11 +46,17 @@ def action(board, visible_board, x, y):
     return True
 
 
-def print_board(board):
-    for row in board:
-        for cell in row:
-            if cell == -2:
-                print("?", end=" ")
+def print_board(board, action=None):
+    if action is not None:
+        x = action // len(board[0])
+        y = action % len(board[0])
+
+    for idx, row in enumerate(board):
+        for idy, cell in enumerate(row):
+            if action is not None and action != -1 and x == idx and y == idy:
+                print("□", end=" ")
+            elif cell == -2:
+                print("■", end=" ")
             elif cell == -1:
                 print("X", end=" ")
             else:
@@ -67,7 +73,7 @@ def get_observation(visible_board, w, h, obs_w, obs_h, n_actions):
     # default - observation is entire visible board
     if w == obs_w and h == obs_h:
         return visible_board, 0, 0
-
+       
     # pick a random observation from the board
     assert w > obs_w and h > obs_h
 
@@ -89,10 +95,22 @@ def get_observation(visible_board, w, h, obs_w, obs_h, n_actions):
     return observation, start_col, start_row
 
 
+def get_observation_slice(visible_board, w, h, obs_w, obs_h, n_actions, obs_x_offset, obs_y_offset):
+    """
+    Get observation from the board with a certain offset
+    """
+
+    start_row = obs_y_offset
+    start_col = obs_x_offset
+    observation = visible_board[start_row:start_row + obs_h, start_col:start_col + obs_w]
+
+    return observation, start_col, start_row
+
+
 def choose_action(agents: list[Agent], observation):
     """
     TODO:  now, a majority vote is used to select an action.
-    todo: In the case that no single action has a majority, the first is chosen
+    todo: In the case that no single action has a majority, the first is chosen -> done 
     todo: choosing the action with the highest summed Q value is probably better
     """
     if len(agents) == 1:
@@ -108,6 +126,12 @@ def choose_action(agents: list[Agent], observation):
             except ValueError:
                 chosen_actions.append(a)
                 action_counts.append(1)
+
+        # return -1 if no majority
+        if np.max(action_counts) < np.ceil(len(agents) / 2):
+            return -1
+
+        # get the most chosen action if there is a majority
         most_chosen = np.argmax(action_counts)
         curr_action = chosen_actions[most_chosen]
 
@@ -128,12 +152,37 @@ def play_game(w: int, h: int, agents: list[Agent], n_bombs: int,
     win = False
 
     done = False
-    while not done and n_actions < w * h:
 
-        observation, obs_x_offset, obs_y_offset = get_observation(visible_board, w, h, obs_w, obs_h, n_actions)
+    # init random observation and offsets 
+    random_obs = True
+    obs_x_offset = 0
+    obs_y_offset = 0
+
+    while not done and n_actions < (w * h * 10):
+
+        # Get the observation from the board
+        if random_obs:
+            # get a random observation is n_actions = 0 or the agents do not agree
+            observation, obs_x_offset, obs_y_offset = get_observation(visible_board, w, h, obs_w, obs_h, n_actions)
+            random_obs = False
+        else:
+            # get the observation with the offset from the previous observation if n_actions > 0 and the agents agree
+            observation, obs_x_offset, obs_y_offset = get_observation_slice(visible_board, w, h, obs_w, obs_h, n_actions, obs_x_offset, obs_y_offset)
+            random_obs = False
 
         # Choose the action with the agent
         curr_action = choose_action(agents, observation)
+
+        # check if there is non-agreement
+        if curr_action == -1 and n_actions != 0 and w != obs_w and h != obs_h:
+            # set random observation to True to get a new observation
+            random_obs = True
+
+            # increase the number of actions
+            n_actions += 1
+
+            # continue to the next action            
+            continue
 
         # store the current state before the action
         curr_state = copy.deepcopy(observation)
@@ -151,8 +200,11 @@ def play_game(w: int, h: int, agents: list[Agent], n_bombs: int,
         x = curr_action // obs_w
         y = curr_action % obs_h
 
-        x += obs_x_offset
-        y += obs_y_offset
+        #this is a bit weird, but it works
+        x += obs_y_offset 
+        y += obs_x_offset
+
+        #print(f"x, y: {x} {y}")
 
         # loss
         if not action(board, visible_board, x, y):
@@ -169,7 +221,7 @@ def play_game(w: int, h: int, agents: list[Agent], n_bombs: int,
             new_state = visible_board
         else:
             new_state = visible_board[obs_y_offset:obs_y_offset + obs_h, obs_x_offset:obs_x_offset + obs_w]
-
+        
         if not done:
             cells_opened = 0
             # reward for each new tile opened
@@ -189,6 +241,7 @@ def play_game(w: int, h: int, agents: list[Agent], n_bombs: int,
         curr_reward = 100 * reward_terminal + 10 * reward_cells + 25 * reward_new_action
 
         n_actions += 1
+        
 
         # update the reward lists
         reward_list.append(curr_reward)
@@ -233,7 +286,7 @@ def play_games(
         # increase the number of games played for the number of bombs
         games_played[n_bombs] += 1
 
-        win, n_actions = play_game(w, h, agents, n_bombs, reward_list, trailing_reward, obs_w, obs_h)
+        win, n_actions, percentage_opened = play_game(w, h, agents, n_bombs, reward_list, trailing_reward, obs_w, obs_h)
 
         if win:
             wins += 1
@@ -251,7 +304,7 @@ def play_games(
         win_ratio_list.append(win_loss_ratio_number)
         trailing_wl.append(np.mean(win_ratio_list[-1000:]))
 
-        if i % 1000 == 0:
+        if i % 100 == 0 and i != 0:
             print(
                 f"game: {i} trailing_reward: {np.mean(reward_list[-1000:]):.2f} epsilon: {agents[0].epsilon:.2f}"
                 f"avg_n_actions: {np.mean(n_action_list[-1000:]):.2f} wins: {wins} win_loss_ratio: {win_loss_ratio_number:.2f}")

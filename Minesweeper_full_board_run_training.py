@@ -24,7 +24,9 @@ def main():
         max_mem_size=100000
     )
 
-    win_ratio_list, trailing_wl, trailing_reward, _, _ = Minesweeper.play_games(n_games, w, h, [agent],
+    agents = [agent]
+
+    win_ratio_list, trailing_wl, trailing_reward, _, _ = Minesweeper.play_games(n_games, w, h, agents,
                                                                                 update_agent=True,
                                                                                 n_bombs_low=10,
                                                                                 n_bombs_high=11,
